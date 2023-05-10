@@ -6,7 +6,9 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
 //const encrypt = require("mongoose-encryption");
-const md5 = require('md5');
+//const md5 = require('md5');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 const app = express();
 
@@ -29,7 +31,7 @@ const userSchema = new mongoose.Schema({
     password: String
 });
 //--------------------add encrypt as a plugin
-//use the secret stored in .env
+//--use the secret stored in .env
 //userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ["password"] });
 
 const User = mongoose.model("User", userSchema);
@@ -48,31 +50,40 @@ app.get("/register", function (req, res) {
 
 app.post("/register", function (req, res) {
 
-    const newUser = new User({
-        user: req.body.username,
-        passord: md5(req.body.password)//access hash function
-    });
-
-    newUser.save()
-        .then(() => {
-            console.log("Successfully saved new user")
-            res.render("secrets");
-        })
-        .catch((err) => {
-            console.log(err);
+    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+        // Store hash in userDB.
+        const newUser = new User({
+            user: req.body.username,
+            //password: md5(req.body.password)//----access hash function
+            password: hash
         });
-
+        newUser.save()
+            .then(() => {
+                console.log("Successfully saved new user");
+                res.render("secrets");
+            })
+            .catch((err) => {
+                console.log(err);
+            });
+    });
 });
 
 app.post("/login", function (req, res) {
+    const user = req.body.username;
+    const password = req.body.password;
 
-    User.findOne({ user: req.body.username })
+    User.findOne({ user: user })
         .then((foundUser) => {
-            if (foundUser.password = md5(req.body.password)) {
-                res.render("secrets");
-                console.log("Successfully login");
-                console.log(req.body.password);
-            }
+            console.log(foundUser);
+            bcrypt.compare(password, foundUser.password, function (err, result) {
+                if (result === true) {
+                    res.render("secrets");
+                    console.log("Successfully login");
+                    console.log(foundUser.password);
+                } else {
+                    console.log(err);
+                }
+            })
         })
         .catch((err) => {
             console.log(err);
