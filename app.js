@@ -96,7 +96,6 @@ passport.use(new GoogleStrategy({
     userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
 },
     function (accessToken, refreshToken, profile, cb) {
-
         User.findOrCreate({ username: profile.displayName, googleId: profile.id }, function (err, user) {
             return cb(err, user);
         });
@@ -146,7 +145,6 @@ app.route("/register")
         //Authenticate the user- passportlocalmongoose
         User.register({ username: req.body.username, active: false }, req.body.password, function (err, user) {
             if (err) {
-                console.log(err);
                 req.flash('error', err.message);
                 res.redirect("/register");
             } else {
@@ -178,19 +176,21 @@ app.get('/auth/google',
 app.get('/auth/google/secrets',
     passport.authenticate('google', { failureRedirect: '/login' }),
     function (req, res) {
-        // Successful authentication, redirect home.
-        res.redirect('/secrets');
-    });
+        res.render("secrets");
+    }
+);
 
 //-------secrets
 
 app.get("/secrets", function (req, res) {
 
-    if (req.isAuthenticated()) { // middleware to test if authenticated/ express-session
-        res.render("secrets");
-    } else {
-        res.redirect("/login");
-    }
+    User.find({ "secret": { $ne: null } })
+        .then((foundUsers) => {
+            res.render("secrets", { usersWithSecrets: foundUsers });
+        })
+        .catch((err) => {
+            console.log("err");
+        });
 
 });
 
@@ -212,8 +212,6 @@ app.route("/submit")
             const submittedSecret = req.body.secret;
             const user = await User.findById(req.user._id).exec();
             //.exec()-- from Mongoose API, when retrive and find it.
-
-
             user.secret = submittedSecret;
             await user.save().then(() => res.redirect("/secrets"));
             return;
